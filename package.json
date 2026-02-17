@@ -1,0 +1,11 @@
+{
+  "name": "food-delivery-ms",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:auth": "npm --prefix apps/auth-service run dev",
+    "dev:catalog": "npm --prefix apps/catalog-service run dev",
+    "dev:order": "npm --prefix apps/order-service run dev",
+    "dev:gateway": "npm --prefix apps/api-gateway run dev"
+  }
+}
