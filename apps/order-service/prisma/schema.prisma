@@ -19,12 +19,12 @@ enum OrderStatus {
 model Order {
   id          String      @id @default(uuid())
   customerId  String
+  customerName  String?
+  customerEmail String?
   status      OrderStatus @default(PENDING)
-
   totalPrice  Float
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   items       OrderItem[]
 }

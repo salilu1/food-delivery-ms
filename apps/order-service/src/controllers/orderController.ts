@@ -1,23 +1,14 @@
 import { Request, Response } from "express";
 import { PrismaClient, OrderStatus } from "@prisma/client";
 import { io } from "../index";
-
 import axios from "axios";
 
-
 const prisma = new PrismaClient();
-const CATALOG_SERVICE_URL = process.env.CATALOG_SERVICE_URL || "http://127.0.0.1:4002";
+const CATALOG_SERVICE_URL =
+  process.env.CATALOG_SERVICE_URL || "http://127.0.0.1:4002";
 
 /**
- * POST /orders
- * Customer creates order
- *
- * body:
- * {
- *   "items": [
- *     { "foodId": "123", "quantity": 2 }
- *   ]
- * }
+ * Customer creates an order
  */
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -58,49 +49,44 @@ export const createOrder = async (req: Request, res: Response) => {
     }
 
     // Create order in database
-    const order = await prisma.order.create({
-      data: {
-        customerId: user.userId,
-        status: OrderStatus.PENDING,
-        totalPrice,
-        items: {
-          create: orderItems,
-        },
-      },
-      include: { items: true },
-    });
-
+    // When creating order in order-service
+const order = await prisma.order.create({
+  data: {
+    customerId: user.userId,
+    customerName: user.name,
+    customerEmail: user.email,
+    status: OrderStatus.PENDING,
+    totalPrice,
+    items: { create: orderItems },
+  },
+  include: { items: true },
+});
     res.status(201).json(order);
   } catch (err: any) {
     console.error(err);
 
     if (axios.isAxiosError(err)) {
-      return res.status(502).json({ error: "Catalog service unavailable", details: err.message });
+      return res.status(502).json({
+        error: "Catalog service unavailable",
+        details: err.message,
+      });
     }
 
     res.status(500).json({ error: "Server error" });
   }
 };
 
-
 /**
- * GET /orders/my
- * Customer sees their orders
+ * Customer views their orders
  */
 export const getMyOrders = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
     const orders = await prisma.order.findMany({
-      where: {
-        customerId: user.userId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        items: true,
-      },
+      where: { customerId: user.userId },
+      orderBy: { createdAt: "desc" },
+      include: { items: true }, // include only items
     });
 
     res.json(orders);
@@ -109,20 +95,37 @@ export const getMyOrders = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
+/**
+ * Admin views all orders
+ */
 export const getAllOrders = async (_req: Request, res: Response) => {
   try {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: "desc" },
-      include: { items: true },
+      include: {
+        items: true, // include order items
+      },
     });
 
-    res.json(orders);
+    // Send orders with customer info directly from order fields
+    res.json(
+      orders.map((order) => ({
+        ...order,
+        customer: {
+          name: order.customerName,
+          email: order.customerEmail,
+        },
+      }))
+    );
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
-
+/**
+ * Admin updates order status
+ */
 export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id);
@@ -133,19 +136,20 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     const updated = await prisma.order.update({
       where: { id },
       data: { status },
-      include: { items: true },
+      include: { items: true }, // only items
     });
 
-    // Emit to the customer's room
+    // Notify the customer via Socket.IO
     io.to(updated.customerId).emit("orderUpdated", updated);
 
-    return res.json(updated);
+    res.json(updated);
   } catch (err: any) {
     console.error(err);
 
-    if (err.code === "P2025") return res.status(404).json({ error: "Order not found" });
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Order not found" });
+    }
 
-    return res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 };
-

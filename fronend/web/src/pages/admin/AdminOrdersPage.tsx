@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { fetchOrders, updateOrderStatus, type Order } from "../../services/orderService";
-import { io, type Socket } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
+import {
+  fetchOrders,
+  updateOrderStatus,
+  type Order,
+} from "../../services/orderService";
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -26,38 +30,28 @@ export default function AdminOrdersPage() {
   async function handleStatusChange(orderId: string, status: string) {
     try {
       await updateOrderStatus(orderId, status);
-      // Optimistically update the order locally
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId ? { ...o, status } : o
-        )
-      );
+      await loadOrders();
     } catch (err: any) {
       alert(err?.response?.data?.error || "Update failed");
     }
   }
 
   useEffect(() => {
-    loadOrders();
+    // Initialize socket connection
+    const s = io("http://localhost:4003"); // Replace with your order-service URL
+    setSocket(s);
 
-    // Connect to Socket.IO
-    const newSocket = io("http://localhost:4003"); // backend order-service
-    setSocket(newSocket);
-
-    // Listen for new orders
-    newSocket.on("orderCreated", (order: Order) => {
-      setOrders((prev) => [order, ...prev]); // prepend new order
-    });
-
-    // Listen for status updates
-    newSocket.on("orderUpdated", (updated: Order) => {
+    // Listen for any order updates
+    s.on("orderUpdated", (updatedOrder: Order) => {
       setOrders((prev) =>
-        prev.map((o) => (o.id === updated.id ? updated : o))
+        prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
       );
     });
 
+    loadOrders();
+
     return () => {
-      newSocket.disconnect();
+      s.disconnect();
     };
   }, []);
 
@@ -77,7 +71,7 @@ export default function AdminOrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="p-3">Customer ID</th>
+                <th className="p-3">Customer</th>
                 <th className="p-3">Items</th>
                 <th className="p-3">Total</th>
                 <th className="p-3">Status</th>
@@ -88,7 +82,9 @@ export default function AdminOrdersPage() {
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id} className="border-t">
-                  <td className="p-3">{order.customerId}</td>
+                  <td className="p-3">
+                    {order.customer?.name} <br /> {order.customer?.email}
+                  </td>
                   <td className="p-3">
                     {order.items.map((i) => (
                       <div key={i.id}>
