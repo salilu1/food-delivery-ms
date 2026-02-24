@@ -1,29 +1,66 @@
 import { useCartStore } from "../../store/cartStore";
 import { createOrder } from "../../services/orderService";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../store/authStore";
 
 export default function CartPage() {
-  const { items, removeFromCart, clearCart, totalPrice } =
-    useCartStore();
+  const { token } = useAuth();
+  const {
+    items,
+    removeCart,
+    decrementFromCart,
+    addToCart,
+    clearCart,
+    totalPrice,
+  } = useCartStore();
+
   const navigate = useNavigate();
 
-  async function handleCheckout() {
-    try {
-      const payload = {
-        items: items.map((item) => ({
-          foodId: item.food.id,
-          quantity: item.quantity,
-        })),
-      };
-
-      await createOrder(payload);
-      clearCart();
-      navigate("/customer/orders");
-    } catch (err: any) {
-      alert(err?.response?.data?.error || "Order failed");
-    }
+ async function handleCheckout() {
+  if (!token) {
+    alert("You must be logged in");
+    return;
   }
 
+  if (items.length === 0) {
+    alert("Your cart is empty");
+    return;
+  }
+
+  try {
+    const payload = {
+      items: items.map((item) => ({
+        foodId: item.foodId,
+        quantity: item.quantity,
+      })),
+    };
+
+    // 1️⃣ Create order
+    const orderResponse = await createOrder(payload, token);
+
+    if (!orderResponse || !orderResponse.id) {
+      throw new Error("Failed to create order");
+    }
+
+    // 2️⃣ Clear cart in backend ONLY if order succeeded
+    const clearRes = await fetch("http://172.24.111.254:5003/cart/clear", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!clearRes.ok) {
+      console.warn("Order created but failed to clear cart in backend");
+    }
+
+    // 3️⃣ Clear cart locally
+    clearCart();
+
+    navigate("/orders");
+  } catch (err: any) {
+    console.error(err);
+    alert(err?.message || "Order failed");
+  }
+}
   if (items.length === 0)
     return <p className="p-4">Your cart is empty.</p>;
 
@@ -39,10 +76,32 @@ export default function CartPage() {
           <div>
             {item.food.name} x {item.quantity}
           </div>
+
           <div>
             ${(item.food.price * item.quantity).toFixed(2)}
+
             <button
-              onClick={() => removeFromCart(item.food.id)}
+              onClick={() =>
+                decrementFromCart(item.food.id, token!)
+              }
+              className="ml-3 text-gray-500"
+            >
+              −
+            </button>
+
+            <button
+              onClick={() =>
+                addToCart(item.food.id, token!)
+              }
+              className="ml-2 text-green-600"
+            >
+              +
+            </button>
+
+            <button
+              onClick={() =>
+                removeCart(item.food.id, token!)
+              }
               className="ml-4 text-red-500"
             >
               Remove

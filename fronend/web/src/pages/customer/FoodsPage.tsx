@@ -1,6 +1,8 @@
+// FoodsPage.tsx
 import { useEffect, useState } from "react";
 import { fetchFoods } from "../../services/catalogService";
 import { useCartStore } from "../../store/cartStore";
+import { useAuth } from "../../store/authStore";
 import type { Food } from "../../types/food";
 
 export default function FoodsPage() {
@@ -11,8 +13,12 @@ export default function FoodsPage() {
   const [maxPrice, setMaxPrice] = useState<number | "">("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [addedFoodId, setAddedFoodId] = useState<string | null>(null);
+
   const itemsPerPage = 6;
 
+  const { token } = useAuth();
+ 
   const addToCart = useCartStore((state) => state.addToCart);
 
   useEffect(() => {
@@ -27,17 +33,26 @@ export default function FoodsPage() {
     loadFoods();
   }, []);
 
-  // Filter and search foods
+ const handleAddToCart = async (food: Food) => {
+  if (!token) {
+    alert("You must be logged in to add items to cart");
+    return;
+  }
+
+  try {
+    await addToCart(food.id, token); // ✅ FIXED
+    setAddedFoodId(food.id);
+    setTimeout(() => setAddedFoodId(null), 2000);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to add item to cart");
+  }
+};
+
   const filteredFoods = foods
-    .filter((f) =>
-      f.name.toLowerCase().includes(search.toLowerCase())
-    )
-    .filter((f) =>
-      minPrice !== "" ? f.price >= Number(minPrice) : true
-    )
-    .filter((f) =>
-      maxPrice !== "" ? f.price <= Number(maxPrice) : true
-    );
+    .filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((f) => (minPrice !== "" ? f.price >= Number(minPrice) : true))
+    .filter((f) => (maxPrice !== "" ? f.price <= Number(maxPrice) : true));
 
   const totalPages = Math.ceil(filteredFoods.length / itemsPerPage);
   const displayedFoods = filteredFoods.slice(
@@ -52,60 +67,62 @@ export default function FoodsPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 flex flex-col lg:flex-row gap-18">
+      {/* IMAGE MODAL */}
+      {selectedFood && (
+        <div
+          className="fixed inset-0 bg-black/70 flex justify-center items-center z-50"
+          onClick={() => setSelectedFood(null)}
+        >
+          <img
+            src={selectedFood.imageUrl}
+            alt={selectedFood.name}
+            className="max-w-lg max-h-[80vh] rounded-xl shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-full lg:w-64 flex-shrink-0">
         <div className="sticky top-4 p-6 bg-white border rounded-xl shadow space-y-4">
           <h2 className="font-bold text-xl mb-2">Filter & Search</h2>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Search</label>
-            <input
-              type="text"
-              placeholder="Search foods..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-gray-300"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Min Price</label>
-            <input
-              type="number"
-              placeholder="0"
-              value={minPrice}
-              onChange={(e) => {
-                setMinPrice(e.target.value === "" ? "" : Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-gray-300"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Max Price</label>
-            <input
-              type="number"
-              placeholder="100"
-              value={maxPrice}
-              onChange={(e) => {
-                setMaxPrice(e.target.value === "" ? "" : Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-gray-300"
-            />
-          </div>
-
+          <input
+            type="text"
+            placeholder="Search foods..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full border rounded px-3 py-2"
+          />
+          <input
+            type="number"
+            placeholder="Min price"
+            value={minPrice}
+            onChange={(e) => {
+              setMinPrice(e.target.value === "" ? "" : Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="w-full border rounded px-3 py-2"
+          />
+          <input
+            type="number"
+            placeholder="Max price"
+            value={maxPrice}
+            onChange={(e) => {
+              setMaxPrice(e.target.value === "" ? "" : Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="w-full border rounded px-3 py-2"
+          />
           <button
             onClick={() => {
               setSearch("");
               setMinPrice("");
               setMaxPrice("");
             }}
-            className="mt-2 w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300 transition-colors"
+            className="w-full bg-gray-200 py-2 rounded hover:bg-gray-300 transition"
           >
             Reset Filters
           </button>
@@ -119,43 +136,32 @@ export default function FoodsPage() {
             key={food.id}
             className="bg-white border rounded-xl shadow hover:shadow-lg transition-shadow flex flex-col"
           >
-            <div className="w-full h-64 mb-4 overflow-hidden rounded-t-xl">
-                {selectedFood && (
-  <div
-    className="fixed inset-0 bg-black/70 flex justify-center items-center z-50"
-    onClick={() => setSelectedFood(null)}
-  >
-    <img
-      src={selectedFood.imageUrl}
-      alt={selectedFood.name}
-      className="max-w-lg max-h-[80vh] rounded-xl shadow-lg"
-      onClick={(e) => e.stopPropagation()} // prevent closing when clicking image
-    />
-  </div>
-)}
-
-{/* <img
-  src={food.imageUrl}
-  alt={food.name}
-  className="cursor-pointer rounded-xl object-cover"
-  onClick={() => setSelectedFood(food)}
-/> */}
+            <div className="w-full h-64 overflow-hidden rounded-t-xl">
               <img
                 src={food.imageUrl}
                 alt={food.name}
-                className="w-full h-full object-cover cursor-pointer rounded-xl object-cover"
-                 onClick={() => setSelectedFood(food)}
+                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                onClick={() => setSelectedFood(food)}
               />
             </div>
+
             <div className="p-4 flex flex-col flex-1">
               <h2 className="text-xl font-semibold">{food.name}</h2>
-              <p className="text-gray-500 text-sm flex-1 mt-2">{food.description}</p>
-              <p className="font-bold mt-3 text-black text-lg">${food.price.toFixed(2)}</p>
+              <p className="text-gray-500 text-sm flex-1 mt-2">
+                {food.description}
+              </p>
+              <p className="font-bold mt-3 text-black text-lg">
+                ${food.price.toFixed(2)}
+              </p>
               <button
-                onClick={() => addToCart(food)}
-                className="mt-4 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors"
+                onClick={() => handleAddToCart(food)}
+                className={`mt-4 w-full py-3 rounded-lg transition ${
+                  addedFoodId === food.id
+                    ? "bg-green-600 text-white"
+                    : "bg-black text-white hover:bg-gray-800"
+                }`}
               >
-                Add to Cart
+                {addedFoodId === food.id ? "Added ✓" : "Add to Cart"}
               </button>
             </div>
           </div>
@@ -164,7 +170,7 @@ export default function FoodsPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="w-full flex justify-center mt-6 space-x-2 col-span-full">
+        <div className="w-full flex justify-center mt-6 space-x-2">
           <button
             onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={currentPage === 1}

@@ -1,34 +1,35 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import {getMyOrders, type Order } from "../../services/orderService";
+import { getMyOrders, type Order } from "../../services/orderService";
 import { useAuth } from "../../store/authStore";
 
 export default function MyOrdersPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth(); // grab token
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  // ✅ Load orders from backend with token
   async function loadOrders() {
-    if (!user) return;
+    if (!user || !token) return;
     try {
       setLoading(true);
       setError("");
-      const data = await getMyOrders();
+      const data = await getMyOrders(token); // pass token here
       setOrders(data);
     } catch (err: any) {
-      setError(err?.response?.data?.error || "Failed to load orders");
+      setError(err?.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !token) return;
 
     // Initialize socket
-    const s = io("http://localhost:4003"); // order-service URL
+    const s = io("http://172.24.111.254:4003"); // order-service URL
     setSocket(s);
 
     // Join room with customerId
@@ -46,7 +47,7 @@ export default function MyOrdersPage() {
     return () => {
       s.disconnect();
     };
-  }, [user]);
+  }, [user, token]);
 
   if (!user) return <p>Please login to view your orders.</p>;
 

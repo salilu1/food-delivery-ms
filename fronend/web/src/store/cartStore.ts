@@ -1,49 +1,126 @@
 import { create } from "zustand";
-import type { Food } from "../types/food";
+
+interface Food {
+  id: string;
+  name: string;
+  price: number;
+  image?: string;
+}
 
 interface CartItem {
-  food: Food;
+  id: string;
+  foodId: string;
   quantity: number;
+  food: Food; // required (we guarantee it exists)
 }
 
 interface CartState {
   items: CartItem[];
-  addToCart: (food: Food) => void;
-  removeFromCart: (foodId: string) => void;
-  clearCart: () => void;
+
+  fetchCart: (token: string) => Promise<void>;
+  addToCart: (foodId: string, token: string) => Promise<void>;
+  decrementFromCart: (foodId: string, token: string) => Promise<void>;
+  removeCart: (foodId: string, token: string) => Promise<void>;
+
   totalPrice: () => number;
+  cartCount: () => number;
+  clearCart: () => void;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
 
-  addToCart: (food) =>
-    set((state) => {
-      const existing = state.items.find((i) => i.food.id === food.id);
+  // ✅ Fetch cart and enrich with catalog data
+  fetchCart: async (token) => {
+  if (!token) return;
 
-      if (existing) {
-        return {
-          items: state.items.map((i) =>
-            i.food.id === food.id
-              ? { ...i, quantity: i.quantity + 1 }
-              : i
-          ),
-        };
-      }
+  try {
+    const res = await fetch("http://172.24.111.254:5003/cart", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      return { items: [...state.items, { food, quantity: 1 }] };
-    }),
+    if (!res.ok) throw new Error("Failed to fetch cart");
 
-  removeFromCart: (foodId) =>
-    set((state) => ({
-      items: state.items.filter((i) => i.food.id !== foodId),
-    })),
+    const cart = await res.json();
 
-  clearCart: () => set({ items: [] }),
+    // Fetch all foods
+    const foodsRes = await fetch("http://172.24.111.254:4002/catalog");
+    const foods: Food[] = await foodsRes.json();
 
+    // Merge food data safely
+    const enrichedItems = (cart?.items || []).map((item: any) => ({
+      ...item,
+      food: foods.find((f) => f.id === item.foodId) || {
+        id: item.foodId,
+        name: "Unknown",
+        price: 0,
+      },
+    }));
+
+    set({ items: enrichedItems });
+  } catch (err) {
+    console.error("Fetch cart error:", err);
+  }
+},
+
+  // ✅ Add
+  addToCart: async (foodId, token) => {
+    if (!token) return;
+
+    await fetch("http://172.24.111.254:5003/cart", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ foodId }),
+    });
+
+    await get().fetchCart(token);
+  },
+
+  // ✅ Decrement
+  decrementFromCart: async (foodId, token) => {
+    if (!token) return;
+
+    await fetch("http://172.24.111.254:5003/cart/decrement", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ foodId }),
+    });
+
+    await get().fetchCart(token);
+  },
+
+  // ✅ Remove completely
+  removeCart: async (foodId, token) => {
+    if (!token) return;
+
+    await fetch(`http://172.24.111.254:5003/cart/${foodId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    await get().fetchCart(token);
+  },
+
+  // ✅ Total price (safe now)
   totalPrice: () =>
     get().items.reduce(
-      (sum, item) => sum + item.food.price * item.quantity,
+      (total, item) => total + item.food.price * item.quantity,
       0
     ),
+
+  // ✅ Cart badge count
+  cartCount: () =>
+    get().items.reduce((total, item) => total + item.quantity, 0),
+
+  clearCart: () => set({ items: [] }),
 }));

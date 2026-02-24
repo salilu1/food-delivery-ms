@@ -5,22 +5,26 @@ import {
   updateOrderStatus,
   type Order,
 } from "../../services/orderService";
+import { useAuth } from "../../store/authStore";
 
 export default function AdminOrdersPage() {
+  const { token } = useAuth(); // get admin token
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   // Load orders from backend
   async function loadOrders() {
+    if (!token) return; // require token
     try {
       setLoading(true);
       setError("");
-      const data = await fetchOrders();
+      const data = await fetchOrders(token);
       setOrders(data);
     } catch (err: any) {
-      setError(err?.response?.data?.error || "Failed to load orders");
+      setError(err?.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -28,20 +32,30 @@ export default function AdminOrdersPage() {
 
   // Handle order status change
   async function handleStatusChange(orderId: string, status: string) {
+    if (!token) return;
     try {
-      await updateOrderStatus(orderId, status);
-      await loadOrders();
+      setUpdatingOrderId(orderId);
+      await updateOrderStatus(orderId, status, token);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+      );
     } catch (err: any) {
-      alert(err?.response?.data?.error || "Update failed");
+      alert(err?.message || "Update failed");
+    } finally {
+      setUpdatingOrderId(null);
     }
   }
 
   useEffect(() => {
+    if (!token) return;
+
     // Initialize socket connection
-    const s = io("http://localhost:4003"); // Replace with your order-service URL
+    const s = io("http://172.24.111.254:4003", {
+      auth: { token }, // send token for admin auth
+    });
     setSocket(s);
 
-    // Listen for any order updates
+    // Listen for order updates
     s.on("orderUpdated", (updatedOrder: Order) => {
       setOrders((prev) =>
         prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
@@ -53,7 +67,9 @@ export default function AdminOrdersPage() {
     return () => {
       s.disconnect();
     };
-  }, []);
+  }, [token]);
+
+  if (!token) return <p className="p-4">You must be logged in as admin.</p>;
 
   return (
     <div className="max-w-6xl mx-auto p-4">
@@ -100,6 +116,7 @@ export default function AdminOrdersPage() {
                         handleStatusChange(order.id, e.target.value)
                       }
                       className="border px-2 py-1 rounded"
+                      disabled={updatingOrderId === order.id}
                     >
                       <option value="PENDING">Pending</option>
                       <option value="CONFIRMED">Confirmed</option>
