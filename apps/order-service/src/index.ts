@@ -8,7 +8,15 @@ import orderRoutes from "./routes/order";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+const allowedOrigins = ["http://172.24.111.254:8080"]; // frontend URL
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true, // important for cookies/auth
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
 app.use(express.json());
 app.use("/orders", orderRoutes);
 app.get("/health", (_req, res) => {
