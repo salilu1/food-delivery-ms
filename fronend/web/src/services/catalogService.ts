@@ -4,6 +4,7 @@ import { getToken } from "../utils/token";
 const CATALOG_URL = import.meta.env.VITE_CATALOG_SERVICE_URL;
 
 export type Food = {
+  available: any;
   id: string;
   name: string;
   description: string;
@@ -40,4 +41,18 @@ export async function createFood(formData: FormData) {
   });
 
   return res.data;
+}
+export async function updateFood(id: string, formData: FormData) {
+   const token = getToken();
+
+  const res = await fetch(`${CATALOG_URL}/catalog/${id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }

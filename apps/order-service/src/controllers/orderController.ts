@@ -12,7 +12,16 @@ const CATALOG_SERVICE_URL =
  */
 export const createOrder = async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+   // inside createOrder
+const user = (req as any).user;
+
+// Call auth-service to get user details
+const userResponse = await axios.get(
+  `http://127.0.0.1:4001/auth/users/${user.userId}`
+);
+
+const userData = userResponse.data;
+    console.log("Decoded user from token:",userData);
     const { items } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -53,8 +62,8 @@ export const createOrder = async (req: Request, res: Response) => {
 const order = await prisma.order.create({
   data: {
     customerId: user.userId,
-    customerName: user.name,
-    customerEmail: user.email,
+    customerName: userData.name,
+    customerEmail: userData.email,
     status: OrderStatus.PENDING,
     totalPrice,
     items: { create: orderItems },

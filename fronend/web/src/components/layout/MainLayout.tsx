@@ -5,14 +5,15 @@ import { useAuth } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
 
 export default function MainLayout() {
-     const { token } = useAuth();
+  const { token, user } = useAuth();  
   const fetchCart = useCartStore((state) => state.fetchCart);
 
   useEffect(() => {
-    if (token) {
+    // Only fetch cart if user is a customer and token exists
+    if (user?.role === "CUSTOMER" && token) {
       fetchCart(token);
     }
-  }, [token, fetchCart]);
+  }, [token, user, fetchCart]);
 
   return (
     <div className="min-h-screen bg-gray-50">

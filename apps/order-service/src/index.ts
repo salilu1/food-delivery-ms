@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true, // important for cookies/auth
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   })
 );
 app.use(express.json());
