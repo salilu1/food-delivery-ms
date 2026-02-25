@@ -1,8 +1,4 @@
-🍔 TaemFood: Microservices Architecture
-A high-performance, scalable food delivery ecosystem built with Node.js microservices, React, and Real-time WebSockets.
 
-Gemini said
-A professional GitHub README should be high-impact, scannable, and highlight the technical complexity immediately. I have condensed your text into a modern, "dev-focused" format.
 
 🍔 TaemFood: Microservices Architecture
 A high-performance, scalable food delivery ecosystem built with Node.js microservices, React, and Real-time WebSockets.
