@@ -64,7 +64,7 @@ const order = await prisma.order.create({
     customerId: user.userId,
     customerName: userData.name,
     customerEmail: userData.email,
-    status: OrderStatus.PENDING,
+    status: OrderStatus.PENDING_PAYMENT,
     totalPrice,
     items: { create: orderItems },
   },
@@ -150,6 +150,50 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 
     // Notify the customer via Socket.IO
     io.to(updated.customerId).emit("orderUpdated", updated);
+
+    res.json(updated);
+  } catch (err: any) {
+    console.error(err);
+
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const markOrderPaid = async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.CONFIRMED },
+      include: { items: true },
+    });
+
+    io.to(updated.customerId).emit("orderUpdated", updated);
+
+    res.json(updated);
+  } catch (err: any) {
+    console.error(err);
+
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(500).json({ error: "Server error" });
+  }
+};
+export const markOrderFailed = async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.PAYMENT_FAILED },
+    });
 
     res.json(updated);
   } catch (err: any) {

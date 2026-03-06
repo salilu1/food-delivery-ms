@@ -54,3 +54,12 @@ export const requireAdmin = (
 
   next();
 };
+export const requireInternal = (req: Request, res: Response, next: any) => {
+  const secret = req.headers["x-internal-secret"];
+
+  if (secret !== process.env.INTERNAL_SERVICE_SECRET) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  next();
+};

@@ -11,19 +11,26 @@ import MyOrdersPage from "../pages/customer/MyOrdersPage";
 import AdminFoodsPage from "../pages/admin/AdminFoodsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 
-import { RequireAuth, RequireRole } from "../components/ProtectedRoute";
+import PaymentSuccessPage from "../pages/payment/PaymentSuccessPage";
+import PaymentCancelPage from "../pages/payment/PaymentCancelPage";
+
+import { RequireRole } from "../components/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <MainLayout />,
     children: [
-      // public routes
+      // PUBLIC ROUTES
       { path: "/", element: <FoodsPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
 
-      // customer routes (must be logged in as CUSTOMER)
+      // PAYMENT REDIRECT ROUTES (public because Chapa redirects here)
+      { path: "/payment/success", element: <PaymentSuccessPage /> },
+      { path: "/payment/cancel", element: <PaymentCancelPage /> },
+
+      // CUSTOMER ROUTES
       {
         element: <RequireRole role="CUSTOMER" />,
         children: [
@@ -32,7 +39,7 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // admin routes (must be logged in as ADMIN)
+      // ADMIN ROUTES
       {
         element: <RequireRole role="ADMIN" />,
         children: [

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { createOrder, getMyOrders, getAllOrders, updateOrderStatus } from "../controllers/orderController";
-import { requireAuth, requireCustomer, requireAdmin } from "../middleware/authMiddleware";
+import { createOrder, getMyOrders, getAllOrders, updateOrderStatus, markOrderPaid, markOrderFailed } from "../controllers/orderController";
+import { requireAuth, requireCustomer, requireAdmin, requireInternal } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -11,5 +11,15 @@ router.get("/my", requireAuth, requireCustomer, getMyOrders);
 // Admin routes
 router.get("/", requireAuth, requireAdmin, getAllOrders);
 router.patch("/:id/status", requireAuth, requireAdmin, updateOrderStatus);
+router.patch(
+  "/internal/:id/pay",
+  requireInternal,
+  markOrderPaid
+);
+router.patch(
+  "/internal/:id/fail",
+  requireInternal,
+  markOrderFailed
+);
 
 export default router;

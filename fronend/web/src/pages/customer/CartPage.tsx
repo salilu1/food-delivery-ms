@@ -3,6 +3,7 @@ import { useCartStore } from "../../store/cartStore";
 import { createOrder } from "../../services/orderService";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../store/authStore";
+import { initializePayment } from "../../services/PaymentService";
 
 export default function CartPage() {
   const { token } = useAuth();
@@ -19,40 +20,50 @@ export default function CartPage() {
   } = useCartStore();
 
   const handleCheckout = async () => {
-    if (!token) {
-      alert("Please log in to complete your order.");
-      return;
+  if (!token) {
+    alert("Please log in to complete your order.");
+    return;
+  }
+
+  setIsProcessing(true);
+
+  try {
+    const payload = {
+      items: items.map((item) => ({
+        foodId: item.foodId,
+        quantity: item.quantity,
+      })),
+    };
+
+    // 1️⃣ Create Order
+    const order = await createOrder(payload, token);
+
+    if (!order?.id) throw new Error("Order creation failed");
+
+    // 2️⃣ Initialize Payment
+    const payment = await initializePayment(order.id, token);
+
+    if (!payment?.checkout_url) {
+      throw new Error("Payment initialization failed");
     }
 
-    setIsProcessing(true);
-    try {
-      const payload = {
-        items: items.map((item) => ({
-          foodId: item.foodId,
-          quantity: item.quantity,
-        })),
-      };
+    // 3️⃣ Clear backend cart
+    await fetch("http://172.24.111.254:5003/cart/clear", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-      // 1. Create order
-      const orderResponse = await createOrder(payload, token);
+    clearCart();
 
-      if (!orderResponse?.id) throw new Error("Order creation failed");
+    // 4️⃣ Redirect to Chapa checkout
+    window.location.href = payment.checkout_url;
 
-      // 2. Clear backend cart (using your specific endpoint)
-      await fetch("http://172.24.111.254:5003/cart/clear", {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // 3. Update local state
-      clearCart();
-      navigate("/orders");
-    } catch (err: any) {
-      alert(err?.message || "Something went wrong during checkout.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  } catch (err: any) {
+    alert(err?.message || "Checkout failed");
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   if (items.length === 0) {
     return (

@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-const allowedOrigins = ["http://172.24.111.254:8080"]; // frontend URL
+const allowedOrigins = ["http://172.24.111.254:5175"]; // frontend URL
 
 app.use(
   cors({
