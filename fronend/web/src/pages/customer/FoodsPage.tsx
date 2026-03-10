@@ -23,6 +23,7 @@ export default function FoodsPage() {
       try {
         setLoading(true);
         const data = await fetchFoods();
+        console.log("data", data);
         setFoods(data);
       } catch (err) {
         console.error("Failed to load foods", err);

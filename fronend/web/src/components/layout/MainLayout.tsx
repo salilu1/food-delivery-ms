@@ -3,6 +3,7 @@ import Navbar from "./Navbar";
 import { useEffect } from "react";
 import { useAuth } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
+import Footer from "./Footer";
 
 export default function MainLayout() {
   const { token, user } = useAuth();  
@@ -21,6 +22,7 @@ export default function MainLayout() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <Outlet />
       </main>
+      <Footer />
     </div>
   );
 }
